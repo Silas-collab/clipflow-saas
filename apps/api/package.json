@@ -2,7 +2,6 @@
   "name": "@clipflow/api",
   "version": "1.0.0",
   "main": "dist/server.js",
-  
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -14,6 +13,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",
+    "axios": "^1.13.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

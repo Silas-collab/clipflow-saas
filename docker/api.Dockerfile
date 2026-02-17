@@ -11,8 +11,8 @@ COPY apps/api/package*.json ./
 # Copy root package-lock.json for workspaces
 COPY package-lock.json ./
 
-# Install dependencies (use npm install instead of ci)
-RUN npm install --omit=dev
+# Install ALL dependencies (including devDependencies for TypeScript compilation)
+RUN npm install
 
 # Copy Prisma schema
 COPY apps/api/prisma ./prisma/
@@ -21,7 +21,12 @@ RUN npx prisma generate
 # Copy source and build
 COPY apps/api/src ./src/
 COPY apps/api/tsconfig.json ./
-RUN npm install -g typescript && npx tsc
+
+# Build TypeScript
+RUN npx tsc
+
+# Remove devDependencies to reduce image size
+RUN npm prune --omit=dev
 
 # Expose port
 EXPOSE 3001
