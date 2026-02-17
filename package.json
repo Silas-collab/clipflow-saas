@@ -1,0 +1,17 @@
+{
+  "name": "clipflow-saas",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev -w @clipflow/api",
+    "dev:web": "npm run dev -w @clipflow/web",
+    "build": "npm run build -w @clipflow/api && npm run build -w @clipflow/web",
+    "test": "npm run test -w @clipflow/api && npm run test -w @clipflow/web",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  }
+}
