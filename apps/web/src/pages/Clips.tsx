@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Scissors, Play, Trash2, Copy, Download, Loader2, Sparkles } from 'lucide-react';
+import { Scissors, Play, Trash2, Copy, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
