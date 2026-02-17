@@ -2,19 +2,29 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
 COPY apps/api/package*.json ./
-RUN npm ci --only=production
+
+# Copy root package-lock.json for workspaces
+COPY package-lock.json ./
+
+# Install dependencies (use npm install instead of ci)
+RUN npm install --omit=dev
 
 # Copy Prisma schema
 COPY apps/api/prisma ./prisma/
 RUN npx prisma generate
 
-# Copy source
-COPY apps/api/dist ./dist/
+# Copy source and build
+COPY apps/api/src ./src/
+COPY apps/api/tsconfig.json ./
+RUN npm install -g typescript && npx tsc
 
 # Expose port
 EXPOSE 3001
 
 # Start server
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/index.js"]
