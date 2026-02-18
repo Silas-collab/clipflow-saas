@@ -19,7 +19,7 @@ export async function transcribeAudio(
   }
 
   const formData = new FormData();
-  formData.append('file', new Blob([audioBuffer]), filename);
+  formData.append('file', new Blob([new Uint8Array(audioBuffer)]), filename);
   formData.append('model', 'whisper-large-v3');
   formData.append('response_format', 'json');
 
