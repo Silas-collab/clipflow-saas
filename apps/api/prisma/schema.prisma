@@ -3,11 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// User
 model User {
   id                String    @id @default(uuid())
   email             String    @unique
@@ -26,243 +25,116 @@ model User {
   videos            Video[]
   clips             Clip[]
   sessions          Session[]
-  workspaces        Workspace[]       @relation("WorkspaceOwner")
-  workspaceMembers  WorkspaceMember[]
-  socialAccounts    SocialAccount[]
+  apiKeys           ApiKey[]
   posts             Post[]
-  invoices          Invoice[]
-  motionProjects    MotionProject[]
+  socialAccounts    SocialAccount[]
+  analytics         Analytics[]
 }
 
-// Session
 model Session {
   id        String   @id @default(uuid())
   userId    String
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Workspace
-model Workspace {
+model ApiKey {
   id        String   @id @default(uuid())
+  userId    String
   name      String
-  ownerId   String
-  plan      String   @default("FREE")
+  key       String   @unique
+  provider  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  owner     User     @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members   WorkspaceMember[]
-  videos    Video[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Workspace Member
-model WorkspaceMember {
-  id         String   @id @default(uuid())
-  workspaceId String
-  userId     String
-  role       String   @default("MEMBER")
-  invitedBy  String?
-  joinedAt   DateTime @default(now())
-
-  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, userId])
-}
-
-// Video
 model Video {
-  id           String   @id @default(uuid())
-  userId       String
-  workspaceId  String?
-  title        String
-  description  String?
-  originalUrl  String?
-  filePath     String?
-  duration     Int      @default(0)
-  thumbnail    String?
-  status       String   @default("UPLOADING")
-  transcript   String?
-  metadata     Json?
-  creditsUsed  Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  clips        Clip[]
+  id             String   @id @default(uuid())
+  userId         String
+  title          String
+  description    String?
+  sourceUrl      String?
+  sourceType     String   @default("UPLOAD")
+  duration       Float?
+  thumbnailUrl   String?
+  status         String   @default("PENDING")
+  transcript     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clips          Clip[]
 }
 
-// Clip
 model Clip {
-  id           String   @id @default(uuid())
-  videoId      String
-  userId       String
-  title        String
-  description  String?
-  startTime    Int
-  endTime      Int
-  duration     Int
-  viralScore   Int      @default(0)
-  scoreReason  String?
-  thumbnail    String?
-  filePath     String?
-  status       String   @default("PENDING")
-  aspectRatio  String   @default("VERTICAL_9_16")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  analyses     ClipAnalysis[]
-  captions     Caption[]
-  posts        Post[]
-}
-
-// Clip Analysis
-model ClipAnalysis {
-  id                  String   @id @default(uuid())
-  clipId              String
-  viralScore          Int
-  scoreReason         String
-  highlights          String[]
-  suggestedHashtags   String[]
-  suggestedTitle      String?
-  engagementPrediction Float?
-  targetAudience      String?
-  bestTimeToPost      DateTime?
-  createdAt           DateTime @default(now())
-
-  clip                Clip     @relation(fields: [clipId], references: [id], onDelete: Cascade)
-}
-
-// Caption Template
-model CaptionTemplate {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  style       Json
-  previewUrl  String?
-  isPremium   Boolean  @default(false)
-  isDefault   Boolean  @default(false)
-  usageCount  Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  captions    Caption[]
-}
-
-// Caption
-model Caption {
-  id         String   @id @default(uuid())
-  clipId     String
-  templateId String?
-  content    String
-  style      Json
-  position   String   @default("bottom")
-  animation  String?
-  createdAt  DateTime @default(now())
-
-  clip       Clip              @relation(fields: [clipId], references: [id], onDelete: Cascade)
-  template   CaptionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-}
-
-// Social Account
-model SocialAccount {
-  id            String    @id @default(uuid())
-  userId        String
-  platform      String
-  accountId     String
-  accountName   String
-  accessToken   String
-  refreshToken  String?
-  tokenExpiresAt DateTime?
-  isActive      Boolean   @default(true)
-  connectedAt   DateTime  @default(now())
-
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  posts         Post[]
-
-  @@unique([userId, platform, accountId])
-}
-
-// Post
-model Post {
   id              String   @id @default(uuid())
+  videoId         String
   userId          String
-  clipId          String
-  socialAccountId String
-  platform        String
-  status          String   @default("DRAFT")
-  scheduledAt     DateTime?
-  publishedAt     DateTime?
-  platformPostId  String?
-  platformUrl     String?
-  error           String?
+  title           String?
+  startTime       Float
+  endTime         Float
+  duration        Float
+  thumbnailUrl    String?
+  outputPath      String?
+  status          String   @default("PENDING")
+  viralScore      Float?
+  viralReasons    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clip            Clip            @relation(fields: [clipId], references: [id], onDelete: Cascade)
-  socialAccount   SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
-  analytics       Analytics[]
-}
-
-// Analytics
-model Analytics {
-  id          String    @id @default(uuid())
-  postId      String
-  views       Int?
-  likes       Int?
-  comments    Int?
-  shares      Int?
-  engagement  Float?
-  fetchedAt   DateTime  @default(now())
-
-  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-}
-
-// Platform Settings
-model PlatformSettings {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  value       String
-  description String?
-  updatedAt   DateTime @updatedAt
-}
-
-// Invoice
-model Invoice {
-  id              String   @id @default(uuid())
-  userId          String
-  stripeInvoiceId String?
-  amount          Int
-  currency        String   @default("usd")
-  status          String   @default("PENDING")
-  periodStart     DateTime
-  periodEnd       DateTime
-  paidAt          DateTime?
-  createdAt       DateTime @default(now())
-
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  captions        Caption[]
 }
 
-// Motion Project
-model MotionProject {
+model Caption {
   id          String   @id @default(uuid())
-  userId      String
-  title       String
-  prompt      String?
-  audioPath   String?
-  transcript  String?
-  status      String   @default("DRAFT")
-  outputPath  String?
-  duration    Int?
+  clipId      String
+  content     String
+  position    String   @default("bottom")
+  style       String?
+  fontSize    Int      @default(24)
+  color       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  clip        Clip     @relation(fields: [clipId], references: [id], onDelete: Cascade)
+}
 
+model Post {
+  id            String   @id @default(uuid())
+  userId        String
+  clipId        String?
+  platform      String
+  status        String   @default("DRAFT")
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  postId        String?
+  postUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  platform     String
+  accountId    String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Analytics {
+  id          String   @id @default(uuid())
+  userId      String
+  entityType  String
+  entityId    String
+  metric      String
+  value       Float
+  createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

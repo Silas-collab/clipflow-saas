@@ -1,104 +1,38 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { z } from 'zod';
-
-const socialSchema = z.object({
-  platform: z.enum(['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK']),
-  accountId: z.string(),
-  accountName: z.string(),
-  accessToken: z.string(),
-  refreshToken: z.string().optional(),
-  tokenExpiresAt: z.string().optional()
-});
-
-export const connectAccount = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
-  const userId = (req as any).user?.userId;
-  
-  try {
-    const data = socialSchema.parse(req.body);
-    
-    // Check if already connected
-    const existing = await prisma.socialAccount.findFirst({
-      where: { userId, platform: data.platform, accountId: data.accountId }
-    });
-
-    if (existing) {
-      // Update existing
-      const account = await prisma.socialAccount.update({
-        where: { id: existing.id },
-        data: {
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-          tokenExpiresAt: data.tokenExpiresAt ? new Date(data.tokenExpiresAt) : null,
-          isActive: true
-        }
-      });
-      return res.json(account);
-    }
-
-    const account = await prisma.socialAccount.create({
-      data: {
-        userId,
-        platform: data.platform,
-        accountId: data.accountId,
-        accountName: data.accountName,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        tokenExpiresAt: data.tokenExpiresAt ? new Date(data.tokenExpiresAt) : null
-      }
-    });
-
-    res.json(account);
-  } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors[0].message });
-    }
-    res.status(500).json({ error: 'Failed to connect account' });
-  }
-};
+const prisma = new PrismaClient();
 
 export const getAccounts = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const userId = (req as any).user?.userId;
-  const { platform } = req.query;
-  
-  const where: any = { userId };
-  if (platform) where.platform = platform;
-
   const accounts = await prisma.socialAccount.findMany({
-    where,
-    orderBy: { connectedAt: 'desc' }
+    where: { userId },
+    select: { id: true, platform: true, accountId: true, createdAt: true }
   });
-  
-  res.json(accounts);
+  res.json({ success: true, data: accounts });
+};
+
+export const connectAccount = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+  const { platform, accountId, accessToken, refreshToken, expiresAt } = req.body;
+  const account = await prisma.socialAccount.create({
+    data: { userId, platform, accountId, accessToken, refreshToken, expiresAt }
+  });
+  res.json({ success: true, data: account });
 };
 
 export const disconnectAccount = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const { id } = req.params;
-  
-  await prisma.socialAccount.update({
-    where: { id },
-    data: { isActive: false }
-  });
-  
-  res.json({ message: 'Account disconnected' });
+  const userId = (req as any).user?.userId;
+  await prisma.socialAccount.deleteMany({ where: { id, userId } });
+  res.json({ success: true });
 };
 
-export const refreshToken = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
-  const { id } = req.params;
-  const { accessToken, refreshToken, tokenExpiresAt } = req.body;
-  
-  const account = await prisma.socialAccount.update({
-    where: { id },
-    data: {
-      accessToken,
-      refreshToken,
-      tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : null
-    }
-  });
-  
-  res.json(account);
+export const getOAuthUrl = async (req: Request, res: Response) => {
+  const { platform } = req.query;
+  const urls: Record<string, string> = {
+    youtube: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3001/api/social/callback/youtube&response_type=code&scope=https://www.googleapis.com/auth/youtube.upload',
+    tiktok: 'https://www.tiktok.com/auth/authorize/?client_key=YOUR_CLIENT_KEY&redirect_uri=http://localhost:3001/api/social/callback/tiktok&response_type=code',
+    instagram: 'https://api.instagram.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3001/api/social/callback/instagram&response_type=code&scope=user_profile,user_media'
+  };
+  res.json({ success: true, url: urls[platform as string] || '' });
 };

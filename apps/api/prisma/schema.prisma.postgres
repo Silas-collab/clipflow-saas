@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String?
+  name              String
+  avatar            String?
+  googleId          String?   @unique
+  role              String    @default("USER")
+  plan              String    @default("FREE")
+  credits           Int       @default(60)
+  stripeCustomerId  String?
+  stripeSubscriptionId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  videos            Video[]
+  clips             Clip[]
+  sessions          Session[]
+  workspaces        Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers  WorkspaceMember[]
+  socialAccounts    SocialAccount[]
+  posts             Post[]
+  invoices          Invoice[]
+  motionProjects    MotionProject[]
+  apiKeys           ApiKey[]
+}
+
+// Session
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Workspace
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  plan      String   @default("FREE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner     User     @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members   WorkspaceMember[]
+  videos    Video[]
+}
+
+// Workspace Member
+model WorkspaceMember {
+  id         String   @id @default(uuid())
+  workspaceId String
+  userId     String
+  role       String   @default("MEMBER")
+  invitedBy  String?
+  joinedAt   DateTime @default(now())
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+// Video
+model Video {
+  id           String   @id @default(uuid())
+  userId       String
+  workspaceId  String?
+  title        String
+  description  String?
+  originalUrl  String?
+  filePath     String?
+  duration     Int      @default(0)
+  thumbnail    String?
+  status       String   @default("UPLOADING")
+  transcript   String?
+  metadata     Json?
+  creditsUsed  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  clips        Clip[]
+}
+
+// Clip
+model Clip {
+  id           String   @id @default(uuid())
+  videoId      String
+  userId       String
+  title        String
+  description  String?
+  startTime    Int
+  endTime      Int
+  duration     Int
+  viralScore   Int      @default(0)
+  scoreReason  String?
+  thumbnail    String?
+  filePath     String?
+  status       String   @default("PENDING")
+  aspectRatio  String   @default("9:16")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyses     ClipAnalysis[]
+  captions     Caption[]
+  posts        Post[]
+}
+
+// Clip Analysis
+model ClipAnalysis {
+  id                  String   @id @default(uuid())
+  clipId              String
+  viralScore          Int
+  scoreReason         String
+  highlights          String[]
+  suggestedHashtags   String[]
+  suggestedTitle      String?
+  engagementPrediction Float?
+  targetAudience      String?
+  bestTimeToPost      DateTime?
+  createdAt           DateTime @default(now())
+
+  clip                Clip     @relation(fields: [clipId], references: [id], onDelete: Cascade)
+}
+
+// Caption Template
+model CaptionTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  style       Json
+  previewUrl  String?
+  isPremium   Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  captions    Caption[]
+}
+
+// Caption
+model Caption {
+  id         String   @id @default(uuid())
+  clipId     String
+  templateId String?
+  content    String
+  style      Json
+  position   String   @default("bottom")
+  animation  String?
+  createdAt  DateTime @default(now())
+
+  clip       Clip              @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  template   CaptionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+}
+
+// Social Account - PLATFORM COMO STRING (não enum)
+model SocialAccount {
+  id            String    @id @default(uuid())
+  userId        String
+  platform      String    // youtube, instagram, tiktok, facebook (lowercase)
+  accountId     String
+  accountName   String
+  accessToken   String
+  refreshToken  String?
+  tokenExpiresAt DateTime?
+  isActive      Boolean   @default(true)
+  connectedAt   DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts         Post[]
+
+  @@unique([userId, platform, accountId])
+}
+
+// Post - PLATFORM COMO STRING
+model Post {
+  id              String   @id @default(uuid())
+  userId          String
+  clipId          String
+  socialAccountId String
+  platform        String   // youtube, instagram, tiktok, facebook (lowercase)
+  status          String   @default("DRAFT")
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  platformPostId  String?
+  platformUrl     String?
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clip            Clip            @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  analytics       Analytics[]
+}
+
+// Analytics
+model Analytics {
+  id          String    @id @default(uuid())
+  postId      String
+  views       Int?
+  likes       Int?
+  comments    Int?
+  shares      Int?
+  engagement  Float?
+  fetchedAt   DateTime  @default(now())
+
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+// Platform Settings
+model PlatformSettings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+// Invoice
+model Invoice {
+  id              String   @id @default(uuid())
+  userId          String
+  stripeInvoiceId String?
+  amount          Int
+  currency        String   @default("usd")
+  status          String   @default("PENDING")
+  periodStart     DateTime
+  periodEnd       DateTime
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Motion Project
+model MotionProject {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  prompt      String?
+  audioPath   String?
+  transcript  String?
+  status      String   @default("DRAFT")
+  outputPath  String?
+  duration    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// API Keys - Sistema dinâmico por provedor
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String
+  provider  String   // openai, anthropic, groq, openrouter, etc
+  name      String   // nome amigável
+  key       String   // API key criptografada
+  models    Json?    // lista de modelos disponíveis
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}

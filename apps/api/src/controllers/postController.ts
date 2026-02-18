@@ -1,141 +1,68 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { z } from 'zod';
-
-const postSchema = z.object({
-  clipId: z.string().uuid(),
-  socialAccountId: z.string().uuid(),
-  scheduledAt: z.string().optional()
-});
-
-export const createPost = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
-  const userId = (req as any).user?.userId;
-  
-  try {
-    const { clipId, socialAccountId, scheduledAt } = postSchema.parse(req.body);
-    
-    // Verify ownership
-    const clip = await prisma.clip.findUnique({ where: { id: clipId } });
-    if (!clip || clip.userId !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    const account = await prisma.socialAccount.findUnique({ 
-      where: { id: socialAccountId } 
-    });
-    if (!account || account.userId !== userId) {
-      return res.status(403).json({ error: 'Invalid social account' });
-    }
-
-    const post = await prisma.post.create({
-      data: {
-        userId,
-        clipId,
-        socialAccountId,
-        platform: account.platform,
-        status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : null
-      },
-      include: { clip: true, socialAccount: true }
-    });
-
-    res.json(post);
-  } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors[0].message });
-    }
-    res.status(500).json({ error: 'Failed to create post' });
-  }
-};
+const prisma = new PrismaClient();
 
 export const getPosts = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const userId = (req as any).user?.userId;
-  const { status, platform } = req.query;
-  
-  const where: any = { userId };
-  if (status) where.status = status;
-  if (platform) where.platform = platform;
-
   const posts = await prisma.post.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: { 
-      clip: { select: { id: true, title: true, thumbnail: true } },
-      socialAccount: { select: { platform: true, accountName: true } },
-      analytics: true
-    }
+    where: { userId },
+    orderBy: { createdAt: 'desc' }
   });
-  
-  res.json(posts);
+  res.json({ success: true, data: posts });
 };
 
 export const getPost = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const { id } = req.params;
-  
-  const post = await prisma.post.findUnique({
-    where: { id },
-    include: { 
-      clip: true,
-      socialAccount: true,
-      analytics: true
-    }
-  });
-  
+  const userId = (req as any).user?.userId;
+  const post = await prisma.post.findFirst({ where: { id, userId } });
   if (!post) return res.status(404).json({ error: 'Post not found' });
-  res.json(post);
+  res.json({ success: true, data: post });
+};
+
+export const createPost = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+  const { clipId, platform, scheduledAt } = req.body;
+  const post = await prisma.post.create({
+    data: { userId, clipId, platform, scheduledAt }
+  });
+  res.json({ success: true, data: post });
 };
 
 export const updatePost = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const { id } = req.params;
-  const { scheduledAt, status } = req.body;
-  
-  const post = await prisma.post.update({
-    where: { id },
-    data: {
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-      status
-    }
+  const userId = (req as any).user?.userId;
+  const { status, scheduledAt, publishedAt, postId, postUrl } = req.body;
+  const post = await prisma.post.updateMany({
+    where: { id, userId },
+    data: { status, scheduledAt, publishedAt, postId, postUrl }
   });
-  
-  res.json(post);
+  res.json({ success: true, data: post });
 };
 
 export const deletePost = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const { id } = req.params;
-  
-  await prisma.post.delete({ where: { id } });
-  
-  res.json({ message: 'Post deleted' });
+  const userId = (req as any).user?.userId;
+  await prisma.post.deleteMany({ where: { id, userId } });
+  res.json({ success: true });
+};
+
+export const schedulePost = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = (req as any).user?.userId;
+  const { scheduledAt } = req.body;
+  const post = await prisma.post.updateMany({
+    where: { id, userId },
+    data: { status: 'SCHEDULED', scheduledAt }
+  });
+  res.json({ success: true, data: post });
 };
 
 export const publishPost = async (req: Request, res: Response) => {
-  const prisma = req.app.get('prisma') as PrismaClient;
   const { id } = req.params;
-  
-  const post = await prisma.post.findUnique({
-    where: { id },
-    include: { clip: true, socialAccount: true }
+  const userId = (req as any).user?.userId;
+  const post = await prisma.post.updateMany({
+    where: { id, userId },
+    data: { status: 'PUBLISHED', publishedAt: new Date() }
   });
-  
-  if (!post) return res.status(404).json({ error: 'Post not found' });
-
-  // TODO: Integrate with actual social media APIs
-  // This would publish to YouTube, Facebook, Instagram, TikTok
-  
-  const updatedPost = await prisma.post.update({
-    where: { id },
-    data: {
-      status: 'PUBLISHED',
-      publishedAt: new Date(),
-      platformPostId: `mock_${Date.now()}`,
-      platformUrl: `https://example.com/post/${Date.now()}`
-    }
-  });
-
-  res.json(updatedPost);
+  res.json({ success: true, data: post });
 };

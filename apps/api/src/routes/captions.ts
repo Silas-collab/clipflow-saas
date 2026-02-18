@@ -1,15 +1,9 @@
 import { Router } from 'express';
-import { createCaption, getCaptions, getCaption, updateCaption, deleteCaption, getTemplates, createTemplate } from '../controllers/captionController.js';
+import * as captionController from '../controllers/captionController.js';
 import { authenticate } from '../middleware/auth.js';
-
 const router = Router();
-
-router.post('/', authenticate, createCaption);
-router.get('/', authenticate, getCaptions);
-router.get('/templates', getTemplates);
-router.post('/templates', authenticate, createTemplate);
-router.get('/:id', authenticate, getCaption);
-router.put('/:id', authenticate, updateCaption);
-router.delete('/:id', authenticate, deleteCaption);
-
+router.get('/', authenticate, captionController.getCaptions);
+router.post('/', authenticate, captionController.createCaption);
+router.put('/:id', authenticate, captionController.updateCaption);
+router.delete('/:id', authenticate, captionController.deleteCaption);
 export default router;

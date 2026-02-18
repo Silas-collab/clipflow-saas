@@ -1,15 +1,10 @@
 import { Router } from 'express';
-import { createClip, getClips, getClip, updateClip, deleteClip, analyzeClip, generateClips } from '../controllers/clipController.js';
+import * as clipController from '../controllers/clipController.js';
 import { authenticate } from '../middleware/auth.js';
-
 const router = Router();
-
-router.post('/', authenticate, createClip);
-router.get('/', authenticate, getClips);
-router.get('/:id', authenticate, getClip);
-router.put('/:id', authenticate, updateClip);
-router.delete('/:id', authenticate, deleteClip);
-router.post('/:id/analyze', authenticate, analyzeClip);
-router.post('/generate', authenticate, generateClips);
-
+router.get('/', authenticate, clipController.getClips);
+router.get('/:id', authenticate, clipController.getClip);
+router.post('/', authenticate, clipController.createClip);
+router.put('/:id', authenticate, clipController.updateClip);
+router.delete('/:id', authenticate, clipController.deleteClip);
 export default router;

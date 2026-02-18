@@ -1,13 +1,8 @@
 import { Router } from 'express';
-import { getSettings, updateSettings, getStats, getUsers, updateUser } from '../controllers/adminController.js';
-import { authenticate, requireAdmin } from '../middleware/auth.js';
-
+import { authenticate } from '../middleware/auth.js';
+import * as adminController from '../controllers/adminController.js';
 const router = Router();
-
-router.get('/settings', authenticate, requireAdmin, getSettings);
-router.put('/settings', authenticate, requireAdmin, updateSettings);
-router.get('/stats', authenticate, requireAdmin, getStats);
-router.get('/users', authenticate, requireAdmin, getUsers);
-router.put('/users/:id', authenticate, requireAdmin, updateUser);
-
+router.use(authenticate);
+router.get('/users', adminController.getUsers);
+router.get('/stats', adminController.getStats);
 export default router;

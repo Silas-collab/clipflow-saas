@@ -1,15 +1,9 @@
 import { Router } from 'express';
-import express from 'express';
-import { getPlans, createCheckoutSession, getSubscription, cancelSubscription, getInvoices, webhook } from '../controllers/billingController.js';
+import * as billingController from '../controllers/billingController.js';
 import { authenticate } from '../middleware/auth.js';
-
 const router = Router();
-
-router.get('/plans', getPlans);
-router.post('/checkout', authenticate, createCheckoutSession);
-router.get('/subscription', authenticate, getSubscription);
-router.delete('/subscription', authenticate, cancelSubscription);
-router.get('/invoices', authenticate, getInvoices);
-router.post('/webhook', express.raw({ type: 'application/json' }), webhook);
-
+router.get('/plans', billingController.getPlans);
+router.post('/checkout', authenticate, billingController.createCheckoutSession);
+router.get('/subscription', authenticate, billingController.getSubscription);
+router.post('/cancel', authenticate, billingController.cancelSubscription);
 export default router;

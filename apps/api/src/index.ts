@@ -14,6 +14,7 @@ import analyticsRoutes from './routes/analytics.js';
 import billingRoutes from './routes/billing.js';
 import motionRoutes from './routes/motion.js';
 import adminRoutes from './routes/admin.js';
+import apiKeyRoutes from './routes/apiKeys.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -22,18 +23,12 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
-// Make prisma available to routes
 app.set('prisma', prisma);
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/videos', videoRoutes);
@@ -45,24 +40,14 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/motion', motionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// Error handler
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 ClipFlow API running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 ClipFlow API running on port ${PORT}`));
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0); });
 
 export default app;
