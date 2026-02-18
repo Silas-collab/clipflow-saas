@@ -48,7 +48,7 @@ export default function Dashboard() {
   const statCards = [
     { label: 'Vídeos Processados', value: stats.totalVideos, icon: Video, color: 'primary' },
     { label: 'Clips Gerados', value: stats.totalClips, icon: Scissors, color: 'accent' },
-    { label: 'Total de Views', value: stats.totalViews.toLocaleString(), icon: TrendingUp, color: 'green' },
+    { label: 'Total de Views', value: (stats.totalViews || 0).toLocaleString(), icon: TrendingUp, color: 'green' },
     { label: 'Engajamento', value: `${stats.totalEngagement}%`, icon: Users, color: 'orange' },
   ];
 
@@ -190,7 +190,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <h4 className="font-medium truncate">{clip.title}</h4>
-                <p className="text-gray-400 text-sm">{clip.views.toLocaleString()} visualizações</p>
+                <p className="text-gray-400 text-sm">{(clip.views || 0).toLocaleString()} visualizações</p>
               </Link>
             ))}
           </div>
