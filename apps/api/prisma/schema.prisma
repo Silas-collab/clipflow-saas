@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -85,6 +85,7 @@ model Clip {
   video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   captions        Caption[]
+  posts           Post[]
 }
 
 model Caption {
@@ -105,6 +106,7 @@ model Post {
   userId        String
   clipId        String?
   platform      String
+  caption       String?
   status        String   @default("DRAFT")
   scheduledAt   DateTime?
   publishedAt   DateTime?
@@ -113,6 +115,7 @@ model Post {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clip          Clip?    @relation(fields: [clipId], references: [id], onDelete: SetNull)
 }
 
 model SocialAccount {

@@ -3,36 +3,84 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const getAccounts = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
-  const accounts = await prisma.socialAccount.findMany({
-    where: { userId },
-    select: { id: true, platform: true, accountId: true, createdAt: true }
-  });
-  res.json({ success: true, data: accounts });
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    
+    const accounts = await prisma.socialAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json({ success: true, data: accounts });
+  } catch (error) {
+    console.error('Get accounts error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get accounts' });
+  }
 };
 
 export const connectAccount = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
-  const { platform, accountId, accessToken, refreshToken, expiresAt } = req.body;
-  const account = await prisma.socialAccount.create({
-    data: { userId, platform, accountId, accessToken, refreshToken, expiresAt }
-  });
-  res.json({ success: true, data: account });
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    
+    const { platform, accountId, accessToken, refreshToken, expiresAt } = req.body;
+    
+    if (!platform) return res.status(400).json({ success: false, error: 'Platform is required' });
+    if (!accountId) return res.status(400).json({ success: false, error: 'AccountId is required' });
+    
+    // Verificar se já existe
+    const existing = await prisma.socialAccount.findFirst({
+      where: { userId, platform: String(platform).toUpperCase() }
+    });
+    
+    if (existing) {
+      // Atualizar existente
+      const updated = await prisma.socialAccount.update({
+        where: { id: existing.id },
+        data: {
+          accountId,
+          accessToken: accessToken || 'mock-token',
+          refreshToken: refreshToken || null,
+          expiresAt: expiresAt ? new Date(expiresAt) : null
+        }
+      });
+      return res.json({ success: true, data: updated, message: 'Account updated' });
+    }
+    
+    // Criar nova
+    const account = await prisma.socialAccount.create({
+      data: {
+        userId,
+        platform: String(platform).toUpperCase(),
+        accountId,
+        accessToken: accessToken || 'mock-token',
+        refreshToken: refreshToken || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null
+      }
+    });
+    
+    res.json({ success: true, data: account, message: 'Account connected' });
+  } catch (error) {
+    console.error('Connect account error:', error);
+    res.status(500).json({ success: false, error: 'Failed to connect account' });
+  }
 };
 
 export const disconnectAccount = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const userId = (req as any).user?.userId;
-  await prisma.socialAccount.deleteMany({ where: { id, userId } });
-  res.json({ success: true });
-};
-
-export const getOAuthUrl = async (req: Request, res: Response) => {
-  const { platform } = req.query;
-  const urls: Record<string, string> = {
-    youtube: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3001/api/social/callback/youtube&response_type=code&scope=https://www.googleapis.com/auth/youtube.upload',
-    tiktok: 'https://www.tiktok.com/auth/authorize/?client_key=YOUR_CLIENT_KEY&redirect_uri=http://localhost:3001/api/social/callback/tiktok&response_type=code',
-    instagram: 'https://api.instagram.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3001/api/social/callback/instagram&response_type=code&scope=user_profile,user_media'
-  };
-  res.json({ success: true, url: urls[platform as string] || '' });
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    
+    const { platform } = req.params;
+    
+    await prisma.socialAccount.deleteMany({
+      where: { userId, platform: String(platform).toUpperCase() }
+    });
+    
+    res.json({ success: true, message: 'Account disconnected' });
+  } catch (error) {
+    console.error('Disconnect account error:', error);
+    res.status(500).json({ success: false, error: 'Failed to disconnect account' });
+  }
 };
