@@ -7,17 +7,10 @@ export const getPosts = async (req: Request, res: Response) => {
     const userId = (req as any).user?.userId;
     if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
     
-    const { status, platform } = req.query;
-    
-    const where: any = { userId };
-    if (status) where.status = String(status).toUpperCase();
-    if (platform) where.platform = String(platform).toUpperCase();
-    
     const posts = await prisma.post.findMany({
-      where,
+      where: { userId },
       include: { clip: true },
-      orderBy: { createdAt: 'desc' },
-      take: 50
+      orderBy: { createdAt: 'desc' }
     });
     
     res.json({ success: true, data: posts });
@@ -33,7 +26,6 @@ export const getPost = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
     
     const { id } = req.params;
-    
     const post = await prisma.post.findFirst({
       where: { id, userId },
       include: { clip: true }
@@ -53,7 +45,7 @@ export const createPost = async (req: Request, res: Response) => {
     const userId = (req as any).user?.userId;
     if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
     
-    const { clipId, platform, caption, scheduledAt } = req.body;
+    const { clipId, platform, caption, title } = req.body;
     
     if (!platform) return res.status(400).json({ success: false, error: 'Platform is required' });
     
@@ -62,11 +54,9 @@ export const createPost = async (req: Request, res: Response) => {
         userId,
         clipId: clipId || null,
         platform: String(platform).toUpperCase(),
-        caption: caption || null,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        caption: caption || title || 'Untitled Post',
         status: 'DRAFT'
-      },
-      include: { clip: true }
+      }
     });
     
     res.json({ success: true, data: post, message: 'Post created' });
@@ -91,10 +81,9 @@ export const updatePost = async (req: Request, res: Response) => {
       where: { id },
       data: {
         caption,
-        status: status ? String(status).toUpperCase() : post.status,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : post.scheduledAt
-      },
-      include: { clip: true }
+        status,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null
+      }
     });
     
     res.json({ success: true, data: updated, message: 'Post updated' });
@@ -111,7 +100,11 @@ export const deletePost = async (req: Request, res: Response) => {
     
     const { id } = req.params;
     
-    await prisma.post.deleteMany({ where: { id, userId } });
+    const post = await prisma.post.findFirst({ where: { id, userId } });
+    if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+    
+    await prisma.post.delete({ where: { id } });
+    
     res.json({ success: true, message: 'Post deleted' });
   } catch (error) {
     console.error('Delete post error:', error);
@@ -127,16 +120,14 @@ export const schedulePost = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { scheduledAt } = req.body;
     
-    if (!scheduledAt) return res.status(400).json({ success: false, error: 'Scheduled date is required' });
-    
     const post = await prisma.post.findFirst({ where: { id, userId } });
     if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
     
     const updated = await prisma.post.update({
       where: { id },
       data: {
-        scheduledAt: new Date(scheduledAt),
-        status: 'SCHEDULED'
+        status: 'SCHEDULED',
+        scheduledAt: new Date(scheduledAt)
       }
     });
     
@@ -157,19 +148,15 @@ export const publishPost = async (req: Request, res: Response) => {
     const post = await prisma.post.findFirst({ where: { id, userId } });
     if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
     
-    // Aqui seria a integração real com a API da plataforma social
-    // Por agora, apenas atualizamos o status
     const updated = await prisma.post.update({
       where: { id },
       data: {
         status: 'PUBLISHED',
-        publishedAt: new Date(),
-        postId: `mock-post-${Date.now()}`,
-        postUrl: `https://mock-platform.com/post/${id}`
+        publishedAt: new Date()
       }
     });
     
-    res.json({ success: true, data: updated, message: 'Post published successfully' });
+    res.json({ success: true, data: updated, message: 'Post published' });
   } catch (error) {
     console.error('Publish post error:', error);
     res.status(500).json({ success: false, error: 'Failed to publish post' });

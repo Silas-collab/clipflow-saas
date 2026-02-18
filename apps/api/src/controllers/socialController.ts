@@ -35,27 +35,27 @@ export const connectAccount = async (req: Request, res: Response) => {
     });
     
     if (existing) {
-      // Atualizar existente
+      // Atualizar
       const updated = await prisma.socialAccount.update({
         where: { id: existing.id },
         data: {
           accountId,
-          accessToken: accessToken || 'mock-token',
-          refreshToken: refreshToken || null,
+          accessToken,
+          refreshToken,
           expiresAt: expiresAt ? new Date(expiresAt) : null
         }
       });
       return res.json({ success: true, data: updated, message: 'Account updated' });
     }
     
-    // Criar nova
+    // Criar novo
     const account = await prisma.socialAccount.create({
       data: {
         userId,
         platform: String(platform).toUpperCase(),
         accountId,
-        accessToken: accessToken || 'mock-token',
-        refreshToken: refreshToken || null,
+        accessToken,
+        refreshToken,
         expiresAt: expiresAt ? new Date(expiresAt) : null
       }
     });
@@ -74,9 +74,13 @@ export const disconnectAccount = async (req: Request, res: Response) => {
     
     const { platform } = req.params;
     
-    await prisma.socialAccount.deleteMany({
+    const account = await prisma.socialAccount.findFirst({
       where: { userId, platform: String(platform).toUpperCase() }
     });
+    
+    if (!account) return res.status(404).json({ success: false, error: 'Account not found' });
+    
+    await prisma.socialAccount.delete({ where: { id: account.id } });
     
     res.json({ success: true, message: 'Account disconnected' });
   } catch (error) {
